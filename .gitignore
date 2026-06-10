@@ -1,0 +1,11 @@
+# Never commit credentials or runtime files
+.credentials.json
+*.key
+daemon/
+backups/
+history.jsonl
+*.log
+*.lock
+.last-*
+*-cache.json
+daemon.status.json
