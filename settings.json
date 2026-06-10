@@ -1,3 +1,16 @@
 {
-  "autoUpdatesChannel": "latest"
+  "autoUpdatesChannel": "latest",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -File \"C:\\Users\\KostasPetrianakis\\.claude\\hooks\\sync-skills.ps1\""
+          }
+        ]
+      }
+    ]
+  }
 }
