@@ -60,21 +60,6 @@ Cross-references *inside* the resolved text (e.g. a Watchtower paragraph
 that itself cites another scripture) are left as plain text — the skill
 won't chase them automatically.
 
-## Works in claude.ai too, not just Claude Code
-
-The skill auto-detects which environment it's running in (no need to tell it)
-and adapts:
-- **Claude Code** — fetches raw HTML via `curl` and extracts by exact HTML
-  attributes (`data-pnum`, verse-anchor `id`s). This is the verified, primary
-  method, tested extensively against real WOL pages.
-- **claude.ai** — its sandboxed fetch tool returns cleaned text, not raw
-  HTML, so the skill falls back to scanning the *visible* verse/paragraph
-  numbers WOL prints inline. **This fallback is a first draft, not yet
-  tested in a real claude.ai session** — when it's used, the reply will say
-  so explicitly. Treat its first few real outputs as something to
-  spot-check, and report back anything wrong so the method can be corrected
-  (same iterative process used to build the Claude Code method).
-
 ## Installing this skill on another machine
 
 This folder is mirrored in `git@github.com:kpetrianakis/my-claude-skills.git`

@@ -1,16 +1,14 @@
 ---
 name: wol-reference-lookup
-description: Detect Bible and JW-publication references (Greek or English) inside pasted text — a passage, article, or talk outline — and fetch their real content from wol.jw.org (Watchtower ONLINE LIBRARY). Use whenever the user pastes text containing citations like "Ματθαίος 13:31, 32", "John 3:16", "w14 15/12 σ. 7 ¶7, 8", "g16.2 p. 3", or asks to "look up", "find the references in", or "check the citations in" a passage/outline. Supports selecting bible-only, publications-only, or both. Works in both Claude Code (shell/curl available) and claude.ai (sandboxed, text-only fetch) — auto-detects which and adapts.
+description: Detect Bible and JW-publication references (Greek or English) inside pasted text — a passage, article, or talk outline — and fetch their real content from wol.jw.org (Watchtower ONLINE LIBRARY). Use whenever the user pastes text containing citations like "Ματθαίος 13:31, 32", "John 3:16", "w14 15/12 σ. 7 ¶7, 8", "g16.2 p. 3", or asks to "look up", "find the references in", or "check the citations in" a passage/outline. Supports selecting bible-only, publications-only, or both.
 ---
 
 # WOL Reference Lookup
 
 Finds every Bible and/or JW-publication reference in a block of text and pulls the
 real text/paragraph content for each one directly from wol.jw.org — never from
-memory. This document is the accumulated, verified method for Claude Code; it
-also contains a **draft, not-yet-field-tested** fallback for environments
-(like claude.ai) where raw HTML isn't available. Follow section 0.5 first to
-pick the right path.
+memory. This document is the accumulated, verified method; follow it exactly,
+the fetching steps are plain HTTP (curl/WebFetch), no browser required.
 
 ## 0. Mode selection
 
@@ -24,35 +22,10 @@ Ask or infer which reference types to process:
 
 If the user's request doesn't specify, default to **both**.
 
-## 0.5. Determine which fetch method you actually have
-
-Don't ask the user which environment they're in — detect it yourself, since
-it depends on which tools you were given, not on where you "are":
-
-1. Make one test fetch of any WOL Bible chapter page, e.g.
-   `https://wol.jw.org/en/wol/b/r1/lp-e/nwt/40/13` (Matthew 13, English),
-   using whatever fetch-capable tool you have (a shell/Bash tool with `curl`,
-   or a URL-fetch tool like `WebFetch`/`web_fetch`).
-2. Inspect what came back:
-   - If it's **raw HTML** — you can see literal tags like `<span id="v40-13-1-1"`
-     and `data-pnum=` in the response — use the **HTML method** (2A / 3A
-     below). This is the verified, primary method. This is how Claude Code's
-     Bash tool behaves.
-   - If it's **cleaned text or markdown** with the HTML stripped or converted
-     (numbers, prose, maybe `[link](url)`-style links, but no visible tags or
-     `data-pnum`/`id="v...` attributes) — use the **plain-text method** (2B /
-     3B below). This is expected in claude.ai's `web_fetch`, and is a
-     **first-draft, unverified** approach — flag this to the user in your
-     output (see section 4) so they know to sanity-check the result.
-   - If the fetch fails entirely (no network access, tool errors out) — say
-     so plainly; don't fall back to answering from memory.
-3. Once determined, use the same method for the rest of the session/request
-   — no need to re-probe per reference.
-
 ## 1. Detect references in the pasted text
 
 Scan for these shapes (Greek and English both occur, sometimes in the same
-document) — this step is identical regardless of fetch method:
+document):
 
 **Bible references**
 - `<Book> <chapter>:<verse>` or `<verse-range>` e.g. `Ματθαίος 13:31, 32`,
@@ -78,10 +51,10 @@ document) — this step is identical regardless of fetch method:
 - Paragraph marker: `¶` + number or range, e.g. `¶7, 8` or `¶6-8`
 - Do not maintain a fixed list of valid codes (`w`, `g`, `km`, `mwb`, `wp`,
   `yb`, book-study codes like `ia`, `rr`, etc. all exist) — any code WOL's own
-  search recognizes will resolve; rely on the not-found handling in step
-  3A/3B rather than pre-filtering codes.
+  search recognizes will resolve; rely on the not-found handling in step 3
+  rather than pre-filtering codes.
 
-## 2A. Resolve Bible references — HTML method (verified, Claude Code)
+## 2. Resolve Bible references — direct URL fetch
 
 1. Pick the language edition based on the reference's own script: Greek book
    name → Greek edition; English/Latin book name → English edition (or follow
@@ -136,35 +109,7 @@ document) — this step is identical regardless of fetch method:
    Strip the trailing `+` cross-reference marker characters — they're WOL's
    own footnote markers, not article text.
 
-## 2B. Resolve Bible references — plain-text method (DRAFT, unverified)
-
-Use only when 0.5 determined you don't have raw HTML access. This relies on
-the fact that WOL visibly prints verse numbers inline before each verse's
-text (e.g. "31 Τους είπε και άλλη μια παραβολή...") — even a
-text/markdown-only fetch should preserve that, since it's rendered content,
-not markup.
-
-1. Build the same chapter URL as in 2A step 1-4 (book-number table and
-   region/language codes are identical regardless of fetch method) and fetch
-   it with your text-capable tool.
-2. Scan the returned text for a token matching the target verse number
-   followed by the verse's own text. **Verse numbers appear in strictly
-   increasing order through the chapter** — use that to disambiguate a real
-   verse marker from a number that merely appears in running text (e.g. a
-   cross-reference like "(1 Κορ. 14:9)" embedded inside verse 1's own text
-   is not a marker for "verse 14" of the current chapter). Track the last
-   confirmed verse number and only accept a candidate that's the immediate
-   next integer.
-3. Extract from that verse-number marker up to (but not including) the next
-   sequential verse-number marker, or the end of the chapter's text for the
-   last verse.
-4. If the citation covers multiple verses, repeat for each and concatenate
-   in order.
-5. **This is unverified.** After producing a result this way, say so in the
-   output (see section 4) and ask the user to spot-check it against the real
-   page at least once.
-
-## 3A. Resolve publication references — HTML method (verified, Claude Code)
+## 3. Resolve publication references — search, then fetch
 
 WOL's own search endpoint parses publication citation strings for you — do
 not try to guess or compute the internal numeric document IDs yourself.
@@ -223,41 +168,12 @@ not try to guess or compute the internal numeric document IDs yourself.
    and flag any such mismatch explicitly rather than silently relabeling it
    to match the user's citation.
 
-## 3B. Resolve publication references — plain-text method (DRAFT, unverified)
-
-Use only when 0.5 determined you don't have raw HTML access.
-
-1. Fetch the search URL exactly as in 3A step 1:
-   `https://wol.jw.org/<lang>/wol/l/r<region>/lp-<code>?q=<encoded citation>`
-   with your text-capable tool. In manual testing (via curl) this page's
-   *raw HTML* already embeds a substantial excerpt of the matched article —
-   likely enough of the surrounding paragraphs to be visible in a
-   text/markdown conversion too, without a second fetch.
-2. Look for the resolved title in the returned text (it's the prominent
-   heading near the top of the results). If nothing resembling a matched
-   article/publication appears at all — genuinely empty or generic "search"
-   boilerplate only — treat as **not found**, same rule as 3A step 2.
-3. If your fetch tool preserves links (e.g. renders them as markdown
-   `[text](url)`), look for a link whose path contains
-   `/wol/d/r<region>/lp-<code>/<docid>` and fetch that URL directly for the
-   full article text, then apply the paragraph-number-scanning technique
-   from 2B step 2 (paragraphs are numbered the same visible way verses are:
-   printed inline, increasing sequentially) to isolate the requested
-   paragraph(s).
-4. If your fetch tool does **not** preserve links and the excerpt from step 1
-   doesn't include the specific paragraph/page requested, say plainly that
-   you found the right publication/article but could not isolate the exact
-   paragraph without a way to fetch further into it — do not guess at
-   surrounding content to fill the gap.
-5. **This whole path is unverified** — flag it in your output per section 4.
-
 ## 4. Critical rules
 
 - **Never hallucinate.** If a Bible chapter fetch 404s, or a publication
-  search returns no docId link (or no recognizable match in plain-text mode),
-  report that specific reference as **"not found — could not resolve on
-  wol.jw.org"** and move on to the next one. Do not paraphrase from memory or
-  guess likely content.
+  search returns no docId link, report that specific reference as
+  **"not found — could not resolve on wol.jw.org"** and move on to the next
+  one. Do not paraphrase from memory or guess likely content.
 - **Do not recurse into cross-references found inside resolved text.** A
   fetched verse or paragraph will often itself contain more citations (e.g.
   ¶8 of `w14 15/12` cites `Ησ. 60:22`) — treat those as plain text to display,
@@ -266,18 +182,13 @@ Use only when 0.5 determined you don't have raw HTML access.
 - Respect the mode from step 0 — don't resolve Bible refs in publications-only
   mode or vice versa (but still resolve *both halves* of a combined citation
   like `Ματ 28:20· w22.07 σ. 9` when mode is "both").
-- **If you used the plain-text method (2B/3B), say so explicitly in your
-  reply**, e.g. "(resolved via the draft plain-text method — please
-  spot-check this against the real page)". This method hasn't been validated
-  against a live claude.ai session yet; treating its output as equally
-  trustworthy to the HTML method would be its own form of overclaiming.
 
 ## 5. Bulk mode — extracting from a full passage/article/outline
 
 The user can paste an entire talk outline or article. Process:
 1. Read the whole text once and enumerate every distinct reference span per
    the detection rules in step 1 (de-duplicate identical citations).
-2. Resolve each independently per steps 2A/3A or 2B/3B (whichever 0.5 chose).
+2. Resolve each independently per steps 2/3.
 3. Present results in the order they appeared in the source, each block
    labeled with the original citation text as written, so the user can match
    it back to the source document.
@@ -291,22 +202,12 @@ For each reference, show:
   number(s) + text
 - For anything unresolved: a clear "not found" line — never silently omit a
   failed reference from the output.
-- If the plain-text method was used anywhere in the response, a one-line
-  disclosure per section 4's rule — once per response is enough, doesn't need
-  repeating per reference.
 
-## Environment notes
+## Environment note (Windows/git-bash)
 
-**Claude Code / Windows (git-bash):** `curl` via the Bash tool writes fine to
-`/tmp/...`, but a plain `python3` call may resolve to a native Windows
-executable that cannot see git-bash's `/tmp` path — copy fetched HTML into a
-Windows-path scratch directory before parsing it with a python heredoc, and
-write any Greek-text output to a file and use the Read tool rather than
-printing to the console (the console codepage can't encode Greek and will
-crash the script).
-
-**claude.ai:** the plain-text method (2B/3B) is a first draft written from
-reasoning about how WOL renders content, not from an actual test inside a
-claude.ai session. The first time it's used for real, treat any surprising or
-wrong output as a bug to report back rather than a one-off fluke — this
-section should be updated once real usage data exists.
+`curl` via the Bash tool writes fine to `/tmp/...`, but a plain `python3` call
+may resolve to a native Windows executable that cannot see git-bash's `/tmp`
+path — copy fetched HTML into a Windows-path scratch directory before parsing
+it with a python heredoc, and write any Greek-text output to a file and use
+the Read tool rather than printing to the console (the console codepage can't
+encode Greek and will crash the script).
