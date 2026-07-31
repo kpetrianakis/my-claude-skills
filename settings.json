@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell.exe -NoProfile -NonInteractive -File \"C:\\Users\\KostasPetrianakis\\.claude\\hooks\\sync-skills.ps1\""
+            "command": "powershell.exe -NoProfile -NonInteractive -File \"~/.claude/hooks/sync-skills.ps1\""
           }
         ]
       }

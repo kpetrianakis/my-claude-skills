@@ -2,6 +2,16 @@
 
 Personal Claude Code commands, skills, and settings, synced across machines.
 
+**This repo is public.** Commands and skills are just documentation/prompts
+and are safe to publish, but `settings.json` is a different story — it's
+exactly the kind of file that accumulates machine-specific or sensitive
+content over time (MCP server API keys, permission rules naming internal
+tools, personal automation details, absolute paths with real usernames).
+Never copy a fresh `settings.json` into this repo and push without reading
+the diff line by line first. `sync-skills.ps1` will nag you about this
+specifically when it fires on a `settings.json` change, but the responsibility
+is still yours to actually read the diff, not just accept the prompt.
+
 This repo holds two different kinds of Claude Code capability:
 - **`commands/`** — single-file custom slash commands (`~/.claude/commands/*.md`),
   invoked explicitly by typing `/name`.
@@ -46,10 +56,12 @@ To pick up future updates on a machine you've already set up: `git pull`,
 then re-run the relevant `cp`/`Copy-Item` lines above (or symlink instead of
 copying — see a given skill's own `README.md` for that option).
 
-**Note:** `hooks/sync-skills.ps1` currently only watches `~/.claude/commands/`,
-`~/.claude/hooks/`, and `~/.claude/settings.json` to auto-offer a sync back to
-this repo — it does not yet watch `~/.claude/skills/`, so skill edits need a
-manual copy-commit-push for now.
+**Note:** `hooks/sync-skills.ps1` watches `~/.claude/commands/`,
+`~/.claude/hooks/`, `~/.claude/skills/`, and `~/.claude/settings.json` and
+offers to sync any change back to this repo. It resolves this repo's local
+clone location dynamically (checks `$env:MY_CLAUDE_SKILLS_REPO` first, then a
+few common clone locations) — set that environment variable if your clone
+lives somewhere unusual, so the hook doesn't have to ask each time.
 
 ## Contents
 
